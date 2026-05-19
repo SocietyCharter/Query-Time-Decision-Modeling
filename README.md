@@ -39,6 +39,8 @@ The important part is not that QTDM always wins. The important part is the archi
 
 This repo is a public package of the QTDM arbiter component. It is intentionally separated from the original private deployment and does not include private data, credentials, runtime logs, or operational infrastructure.
 
+For setup, API usage, request fields, response interpretation, and evaluation utilities, see [How to Use Query Time Decision Modeling](docs/HOW_TO_USE.md).
+
 ## Features
 
 - Retrieval-conditioned regression, classification, and ranking support
