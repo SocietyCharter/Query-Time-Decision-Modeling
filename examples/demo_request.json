@@ -1,16 +1,18 @@
 {
-  "request_id": "demo-001",
+  "request_id": "demo-exoplanet-eqt",
   "target_type": "regression",
   "target_name": "pl_eqt",
   "entity_type": "content",
-  "query_summary": "temperate rocky planet around an M-type star",
+  "query_summary": "temperate rocky planet around an M-type star in the habitable zone",
   "filters": {},
   "features": {},
   "policy": {
     "mode": "semantic_distribution",
+    "domain": "exoplanet",
     "k": 6,
     "min_support": 0.2,
-    "counter_queries": ["hot gas giant close orbit"]
+    "semantic_tilt": true,
+    "mock_semantic_tilt": -0.35
   },
   "data_types": ["exoplanet_record"]
 }

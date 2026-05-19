@@ -6,6 +6,7 @@ import numpy as np
 
 from qtdm_arbiter.integration.retrieval_client import RetrievalClient
 from qtdm_arbiter.models.request import ArbiterRequest
+from qtdm_arbiter.domains.exoplanet import QUERY_FEATURES as EXOPLANET_QUERY_FEATURES
 
 
 CANONICAL_FEATURES = [
@@ -27,33 +28,11 @@ CANONICAL_FEATURES = [
     # domain-specific enrichment features (populated when available)
     "page2_exists",
     "page3_exists",
-    # exoplanet physical fields (present in content-mode payload, NaN otherwise)
-    "pl_eqt",
-    "pl_insol",
-    "pl_rade",
-    "pl_dens",
-    "pl_masse",
-    "pl_orbper",
-    "pl_orbsmax",
-    "st_teff",
-    "st_mass",
-    "sy_dist",
-    "water_score",
+    # Optional domain adapter fields. They are NaN outside matching domains.
+    *EXOPLANET_QUERY_FEATURES,
 ]
 
-PHYSICAL_QUERY_FEATURES = [
-    "pl_eqt",
-    "pl_insol",
-    "pl_rade",
-    "pl_dens",
-    "pl_masse",
-    "pl_orbper",
-    "pl_orbsmax",
-    "st_teff",
-    "st_mass",
-    "sy_dist",
-    "water_score",
-]
+PHYSICAL_QUERY_FEATURES = list(EXOPLANET_QUERY_FEATURES)
 
 COLLECTION_STATUS_MAP = {
     "ignored": 0.0,
@@ -206,18 +185,7 @@ def _feature_row_from_payload(payload: Dict[str, Any]) -> List[float]:
         _encode_value(payload.get("capability_maturity_numeric"), payload.get("capability_maturity"), CAPABILITY_MATURITY_MAP),
         _coerce_float(payload.get("page2_exists")),
         _coerce_float(payload.get("page3_exists")),
-        # exoplanet physical fields
-        _coerce_float(payload.get("pl_eqt")),
-        _coerce_float(payload.get("pl_insol")),
-        _coerce_float(payload.get("pl_rade")),
-        _coerce_float(payload.get("pl_dens")),
-        _coerce_float(payload.get("pl_masse")),
-        _coerce_float(payload.get("pl_orbper")),
-        _coerce_float(payload.get("pl_orbsmax")),
-        _coerce_float(payload.get("st_teff")),
-        _coerce_float(payload.get("st_mass")),
-        _coerce_float(payload.get("sy_dist")),
-        _coerce_float(payload.get("water_score")),
+        *[_coerce_float(payload.get(feature)) for feature in EXOPLANET_QUERY_FEATURES],
     ]
 
 

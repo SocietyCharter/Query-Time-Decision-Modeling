@@ -127,9 +127,10 @@ def run_request(request: ArbiterRequest, retrieval_url: str | None = None) -> Ar
             if (finding.get("finding_id") or finding.get("chunk_id"))
         ]
         if not labeled_values:
+            status = "refused" if refusal_reason else "semantic_support_only"
             response = ArbiterResponse(
                 request_id=request.request_id,
-                status="semantic_support_only",
+                status=status,
                 prediction=None,
                 prediction_type=None,
                 confidence=round(float(support_score), 4),
@@ -140,12 +141,50 @@ def run_request(request: ArbiterRequest, retrieval_url: str | None = None) -> Ar
                 evidence_case_ids=evidence_case_ids,
                 supporting_case_ids=evidence_case_ids,
                 fallback_used=False,
-                refusal_reason="no_real_labels",
+                refusal_reason=refusal_reason or "no_real_labels",
                 distribution_summary={},
                 comparator_summary={},
                 confidence_components={"final_confidence": round(float(support_score), 4)},
                 diagnostics=diagnostics,
-                explanation=build_explanation(None, usable, diagnostics),
+                explanation=None if status == "refused" else build_explanation(None, usable, diagnostics),
+            )
+            write_audit(request, response)
+            return response
+
+        semantic_refusal = refusal_reason or check_refusal_gates(
+            len(usable),
+            diagnostics["feature_completeness"],
+            diagnostics["target_coverage"],
+            diagnostics["sim_coherence"],
+            support_score,
+            {
+                "min_neighbors": MIN_K,
+                "min_support": min_support,
+                "min_real_label_coverage": float(request.policy.get("min_real_label_coverage", 0.1)),
+            },
+            real_label_coverage=diagnostics["real_label_coverage"],
+            fuzzy_mode=False,
+        )
+        if semantic_refusal is not None:
+            response = ArbiterResponse(
+                request_id=request.request_id,
+                status="refused",
+                prediction=None,
+                prediction_type=None,
+                confidence=round(float(support_score), 4),
+                support_score=round(float(support_score), 4),
+                model_used="semantic_distribution",
+                neighbors_requested=k,
+                neighbors_used=len(usable),
+                evidence_case_ids=evidence_case_ids,
+                supporting_case_ids=evidence_case_ids,
+                fallback_used=False,
+                refusal_reason=semantic_refusal,
+                distribution_summary={},
+                comparator_summary={},
+                confidence_components={"final_confidence": round(float(support_score), 4)},
+                diagnostics=diagnostics,
+                explanation=None,
             )
             write_audit(request, response)
             return response
@@ -158,6 +197,48 @@ def run_request(request: ArbiterRequest, retrieval_url: str | None = None) -> Ar
         )
         prediction = dist_result["prediction"]
         model_used = "semantic_distribution"
+        tilt_meta: Dict[str, Any] = {}
+        tilt_model = None
+        semantic_tilt = None
+        semantic_quantile = None
+        if request.target_type == "regression" and bool(request.policy.get("semantic_tilt", False)):
+            from qtdm_arbiter.core.reasoning import call_llm_tilt, tilt_to_prediction
+
+            raw_mock_tilt = request.policy.get("mock_semantic_tilt", request.policy.get("semantic_tilt_value"))
+            if raw_mock_tilt is not None:
+                semantic_tilt = float(np.clip(float(raw_mock_tilt), -2.0, 2.0))
+                tilt_meta = {"source": "policy_mock_tilt"}
+                tilt_model = "mock_semantic_tilt"
+            else:
+                semantic_tilt, tilt_meta, tilt_model = call_llm_tilt(
+                    query=request.query_summary,
+                    target_name=request.target_name,
+                    target_type=request.target_type,
+                    neighbors=usable[:12],
+                    distribution_summary=dist_result.get("distribution_summary", {}),
+                    policy=request.policy,
+                    counter_distribution_summary=None,
+                )
+            if semantic_tilt is not None:
+                prediction, semantic_quantile = tilt_to_prediction(
+                    float(semantic_tilt),
+                    [float(value) for value in labeled_values],
+                    [float(weight) for weight in labeled_weights],
+                )
+                dist_result["prediction"] = prediction
+                dist_result["prediction_median"] = prediction
+                model_used = "semantic_distribution+semantic_tilt"
+                diagnostics["tilt_applied"] = True
+                diagnostics["semantic_tilt"] = round(float(semantic_tilt), 4)
+                diagnostics["semantic_quantile"] = round(float(semantic_quantile), 4)
+                diagnostics["tilt_model"] = tilt_model
+                diagnostics["tilt_path"] = "p=Phi(z_sem); prediction=weighted_quantile(p)"
+                for key in ("data_says", "missing_context", "supporting_reason", "counter_reason", "confidence_rationale", "source"):
+                    if isinstance(tilt_meta, dict) and key in tilt_meta:
+                        diagnostics[key] = tilt_meta[key]
+            elif tilt_meta:
+                diagnostics["tilt_error"] = tilt_meta.get("error", "semantic_tilt_unavailable")
+
         conformal_interval = None
         if request.target_type == "regression":
             label_array = np.asarray(labeled_values, dtype=float)
@@ -179,6 +260,9 @@ def run_request(request: ArbiterRequest, retrieval_url: str | None = None) -> Ar
             "label_coverage": diagnostics["real_label_coverage"],
             "neighbors_used": len(usable),
         }
+        if semantic_tilt is not None:
+            confidence_components["semantic_tilt"] = round(float(semantic_tilt), 4)
+            confidence_components["semantic_quantile"] = round(float(semantic_quantile), 4)
         response = ArbiterResponse(
             request_id=request.request_id,
             status="ok",

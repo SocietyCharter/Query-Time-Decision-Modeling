@@ -1,23 +1,48 @@
 {
-  "request_id": "demo-001",
+  "request_id": "demo-exoplanet-eqt",
   "status": "ok",
-  "prediction": 252.5,
-  "prediction_mean": 252.83,
-  "prediction_median": 252.5,
-  "prediction_low": 243.0,
-  "prediction_high": 265.0,
+  "prediction": 235.0,
+  "prediction_mean": 249.54,
+  "prediction_median": 235.0,
+  "prediction_mode": 250.9,
+  "prediction_low": 215.0,
+  "prediction_high": 255.0,
   "prediction_type": "semantic_distribution_numeric",
-  "confidence": 0.73,
-  "support_score": 0.79,
-  "model_used": "semantic_distribution",
+  "confidence": 0.6283,
+  "support_score": 0.6283,
+  "model_used": "semantic_distribution+semantic_tilt",
   "neighbors_requested": 6,
   "neighbors_used": 6,
-  "evidence_case_ids": ["q-1", "q-2", "q-3", "q-4", "q-5", "q-6"],
+  "evidence_case_ids": ["exo-001", "exo-003", "exo-002", "exo-005", "exo-004", "exo-006"],
+  "supporting_case_ids": ["exo-001", "exo-003", "exo-002", "exo-005", "exo-004", "exo-006"],
+  "counter_case_ids": [],
   "fallback_used": false,
   "refusal_reason": null,
+  "distribution_summary": {
+    "sample_count": 6,
+    "mean": 249.54,
+    "median": 251.0,
+    "q10": 234.0,
+    "q90": 265.0,
+    "width_80": 31.0
+  },
+  "comparator_summary": {
+    "overlap_with_base": null,
+    "counter_query_count": 0
+  },
+  "confidence_components": {
+    "final_confidence": 0.6283,
+    "label_coverage": 1.0,
+    "neighbors_used": 6,
+    "semantic_tilt": -0.35,
+    "semantic_quantile": 0.3632
+  },
   "diagnostics": {
-    "feature_completeness": 1.0,
-    "target_coverage": 1.0,
-    "sim_coherence": 0.96
+    "n_usable": 6,
+    "real_label_coverage": 1.0,
+    "sim_coherence": 0.1006,
+    "semantic_tilt": -0.35,
+    "semantic_quantile": 0.3632,
+    "tilt_path": "p=Phi(z_sem); prediction=weighted_quantile(p)"
   }
 }

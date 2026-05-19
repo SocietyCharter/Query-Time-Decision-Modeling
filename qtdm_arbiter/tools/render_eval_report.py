@@ -41,12 +41,12 @@ def _pct(value: float | None) -> str:
 
 
 def _determine_target_type(baselines: Dict[str, Any]) -> str:
-    """Infer whether the eval is regression or classification."""
+    """Infer whether the eval is regression or binary_classification."""
     for bl_data in baselines.values():
         if bl_data.get("mae") is not None:
             return "regression"
         if bl_data.get("f1") is not None:
-            return "classification"
+            return "binary_classification"
     return "regression"
 
 

@@ -24,33 +24,50 @@ import json
 import math
 import os
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import requests
+
+from qtdm_arbiter.domains.exoplanet import (
+    DEFAULT_NEIGHBOR_FIELDS as EXOPLANET_NEIGHBOR_FIELDS,
+    UNIT_HINTS as EXOPLANET_UNIT_HINTS,
+    format_neighbor as format_exoplanet_neighbor,
+)
 
 VLLM_URL = os.environ.get("QTDM_VLLM_URL", "http://localhost:8000/v1/chat/completions")
 DEFAULT_MODEL = os.environ.get("QTDM_REASONING_MODEL", "qwen3.6-27b")
 DEFAULT_TIMEOUT = int(os.environ.get("QTDM_REASONING_TIMEOUT", "60"))
 
-# Fields shown to the LLM per neighbor (keep compact — token budget)
-NEIGHBOR_FIELDS = [
-    "pl_name", "pl_eqt", "pl_rade", "pl_masse", "pl_insol",
-    "pl_orbsmax", "pl_orbper", "pl_dens", "st_teff", "st_spectype",
-    "sy_dist", "hz_flag", "water_score",
+GENERIC_NEIGHBOR_FIELDS = [
+    "finding_id",
+    "chunk_id",
+    "summary",
+    "chunk_text",
+    "_result_score",
+    "_semantic_score",
 ]
 
 
-def _format_neighbors(cases: List[Dict[str, Any]], limit: int = 12) -> str:
+def _domain_name(policy: Dict[str, Any]) -> str:
+    return str(policy.get("domain") or "").strip().lower()
+
+
+def _format_neighbors(cases: List[Dict[str, Any]], policy: Dict[str, Any], limit: int = 12) -> str:
     rows = []
+    domain = _domain_name(policy)
     for i, case in enumerate(cases[:limit]):
-        payload = case.get("payload") or case.get("metadata") or case  # flat or nested
-        parts = []
-        for f in NEIGHBOR_FIELDS:
-            v = payload.get(f)
-            if v is not None and v != "" and v is not False:
-                parts.append(f"{f}={v}")
-        rows.append(f"  [{i+1}] " + ", ".join(parts))
+        if domain == "exoplanet":
+            row = format_exoplanet_neighbor(case, EXOPLANET_NEIGHBOR_FIELDS)
+        else:
+            payload = case.get("payload") or case.get("metadata") or case
+            parts = []
+            for field in GENERIC_NEIGHBOR_FIELDS:
+                value = payload.get(field)
+                if value is not None and value != "" and value is not False:
+                    parts.append(f"{field}={str(value)[:140]}")
+            row = ", ".join(parts)
+        rows.append(f"  [{i+1}] " + row)
     return "\n".join(rows)
 
 
@@ -60,6 +77,7 @@ def _build_tilt_prompt(
     target_type: str,
     neighbors: List[Dict[str, Any]],
     distribution_summary: Dict[str, Any],
+    policy: Dict[str, Any],
     counter_distribution_summary: Optional[Dict[str, Any]] = None,
 ) -> str:
     # Format distribution summary
@@ -84,22 +102,18 @@ def _build_tilt_prompt(
         if parts:
             counter_str = "\nCounter-example distribution: " + ", ".join(parts)
 
-    neighbor_text = _format_neighbors(neighbors)
+    neighbor_text = _format_neighbors(neighbors, policy)
 
-    unit_hint = {
-        "pl_eqt": "K (Kelvin)",
-        "pl_rade": "Earth radii",
-        "pl_masse": "Earth masses",
-        "pl_insol": "Earth flux",
-        "pl_orbper": "days",
-        "pl_orbsmax": "AU",
-        "pl_dens": "g/cm³",
-        "st_teff": "K (Kelvin)",
-        "sy_dist": "parsecs",
-        "water_score": "0–1 probability score",
-    }.get(target_name, "")
+    domain = _domain_name(policy)
+    unit_hint = EXOPLANET_UNIT_HINTS.get(target_name, "") if domain == "exoplanet" else ""
+    role = "planetary science analyst" if domain == "exoplanet" else "decision analyst"
+    factor_hint = (
+        "stellar type, orbital distance, planet size, insolation"
+        if domain == "exoplanet"
+        else "the query attributes, retrieved precedents, and missing context"
+    )
 
-    return f"""You are a planetary science analyst evaluating where a specific case belongs within a distribution of similar past cases.
+    return f"""You are a {role} evaluating where a specific case belongs within a distribution of similar past cases.
 
 CRITICAL RULE: You must NOT output a target value. You output ONLY a semantic tilt score.
 
@@ -115,7 +129,7 @@ Your task: Decide where this specific query belongs WITHIN the outcome distribut
 
 Think about:
 - Does this query describe a case that is physically LOWER, HIGHER, or TYPICAL compared to the retrieved neighbors?
-- What physical factors push the value up or down (stellar type, orbital distance, planet size, insolation)?
+- What factors push the value up or down ({factor_hint})?
 - Are there counterexamples in the neighborhood that suggest a different position?
 - What context is missing that would change your judgment?
 
@@ -181,7 +195,7 @@ def call_llm_tilt(
 
     prompt = _build_tilt_prompt(
         query, target_name, target_type, neighbors,
-        distribution_summary, counter_distribution_summary,
+        distribution_summary, policy, counter_distribution_summary,
     )
 
     try:

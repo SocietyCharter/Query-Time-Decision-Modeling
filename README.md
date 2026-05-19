@@ -1,75 +1,62 @@
 # Query Time Decision Modeling
 
-Query-Time Decision Modeling (QTDM) is a retrieval-conditioned decision system designed by Jesse Brownfield. It turns similar historical cases into a bounded prediction, confidence score, and evidence trail while keeping language-model reasoning inside explicit guardrails.
+Query-Time Decision Modeling (QTDM) Arbiter is a reproducible proof-of-concept decision engine. It takes a query, retrieves similar labeled precedent cases, builds a weighted empirical outcome distribution, optionally applies bounded semantic tilt, and returns a grounded prediction with uncertainty, confidence diagnostics, evidence IDs, and refusal behavior.
 
-The intent is straightforward: use retrieval to find the best available precedent, use classical estimation to build the decision surface, and use an LLM only as a constrained semantic placement signal. The language model does not directly predict the target value. It can only move the estimate within a distribution built from retrieved evidence.
+This repository is intentionally narrow. It demonstrates the arbiter mechanism: evidence-bounded prediction from retrieved precedent. It is not a generic AI framework.
 
-## Core Idea
+## What This Repo Does
 
-1. Retrieve comparable cases from a vector or content retrieval service.
-2. Extract the observed target values from those cases.
-3. Build a weighted empirical distribution.
-4. Optionally ask an LLM for semantic tilt only.
-5. Convert that tilt into a quantile inside the observed distribution.
-6. Return the prediction, uncertainty band, diagnostics, and supporting case IDs.
+- Runs a local, service-free QTDM demo with a small static exoplanet fixture dataset.
+- Retrieves similar labeled cases through an in-memory demo retrieval client.
+- Builds a weighted empirical distribution from retrieved labels.
+- Uses `semantic_distribution` as the flagship decision path.
+- Optionally maps bounded semantic tilt through `p = Phi(z_sem)` and `prediction = weighted_quantile(p)`.
+- Returns a prediction interval, support/confidence diagnostics, evidence case IDs, and explicit refusal states.
+- Includes a toy mini-eval to make the proof-of-concept behavior reproducible.
 
-## Why This Exists
+## What It Does Not Do
 
-Many retrieval-augmented systems stop after returning similar documents. Many LLM systems go the other direction and produce plausible but ungrounded numerical answers. QTDM sits between those approaches: retrieval supplies precedent, classical estimation supplies the decision signal, and the LLM is constrained to explanation and bounded ranking/tilt.
+- It does not prove broad generality.
+- It does not include the full private deployment.
+- It does not let an LLM directly invent the target value.
+- It does not claim the toy fixture eval is the NASA benchmark.
 
-The project is built for decision support where unsupported confidence is worse than abstention. A QTDM response exposes the retrieved evidence, support diagnostics, confidence signals, and refusal reasons so a caller can see why the system answered or why it declined.
+This package is extracted from a larger private deployment; public fixtures are intentionally small.
 
-## Results Snapshot
+## Why QTDM Exists
 
-The accompanying white paper reports an initial 50-case blind exoplanet demonstration using NASA Exoplanet Archive-derived records. This is proof-of-concept evidence, not a universal benchmark claim.
+Many retrieval-augmented systems stop at returning similar documents. Many LLM systems produce plausible but ungrounded numerical answers. QTDM sits between those approaches: retrieval supplies precedent, classical distributional estimation supplies the decision surface, and optional language-model reasoning is constrained to a bounded placement signal.
 
-| Metric | LLM-only | Weighted KNN | QTDM |
-| --- | ---: | ---: | ---: |
-| Mean Absolute Error | 270.9 | 164.4 | 16.3 |
-| RMSE | N/A | 328.0 | 75.2 |
-| Median Absolute Error | N/A | 33.5 | 0.0 |
-| Nominal 80% interval coverage | N/A | 96% | 98% |
-| Harness-reported exact hits | N/A | 0/50 | 35/50 |
-
-On that demonstration, QTDM reduced MAE by 94% against LLM-only inference and 90% against weighted KNN. A separate cross-domain routing diagnostic refused 20/20 out-of-distribution queries, which is the intended behavior when local evidence is weak.
-
-The important part is not that QTDM always wins. The important part is the architecture: the system can use LLM reasoning without letting the LLM invent the final number. Broader validation still needs larger public datasets, fixed splits, preregistered tolerance rules, interval-width reporting, and calibration curves.
-
-## Public Package
-
-For setup, API usage, request fields, response interpretation, and evaluation utilities, see [How to Use Query Time Decision Modeling](docs/HOW_TO_USE.md).
-
-## Features
-
-- Retrieval-conditioned regression, classification, and ranking support
-- Weighted nearest-neighbor and local-model fallback paths
-- Semantic distribution mode for evidence-first prediction
-- Refusal gates for weak neighborhoods, sparse labels, diffuse similarity, and low support
-- Confidence diagnostics with effective sample size, label coverage, feature completeness, and coherence
-- Optional semantic tilt and decision-context synthesis stages
-- FastAPI endpoint and CLI entrypoint
-- Unit tests and small public fixtures
+The design goal is decision support with inspectable evidence. If local precedent is weak, sparse, diffuse, or unlabeled, the arbiter should refuse or return semantic support only instead of pretending to know.
 
 ## Prerequisites
 
 - Python 3.11 or newer
-- `pip` and `venv` for local installation
-- A compatible retrieval service for live decisions
-- Optional: an LLM endpoint for semantic tilt and decision-context synthesis
-
-The unit tests do not require a live retrieval backend. They use stubbed clients so the core pipeline can be validated locally.
+- `pip` and `venv`
+- No external service for the local demo or test suite
+- Optional: a compatible retrieval service for live decisions
+- Optional: an LLM endpoint for real semantic tilt instead of the mocked demo tilt
 
 ## General Requirements
 
-QTDM expects retrieved cases to include stable identifiers, usable text, similarity or ranking information when available, and target labels or numeric payload fields for the requested prediction target.
+QTDM requests use the accepted target types:
 
-For live use, the default retrieval client expects:
+- `regression`
+- `binary_classification`
+- `ranking`
+
+Live retrieval backends should return:
+
+- Stable case IDs such as `finding_id` or `chunk_id`
+- Text fields such as `summary`, `chunk_text`, or `content`
+- Similarity or ranking scores when available
+- Target labels or numeric payload fields for the requested `target_name`
+
+The default HTTP retrieval client expects:
 
 - `POST /search/findings`
 - `POST /search/content`
 - `GET /labels`
-
-The arbiter is designed to refuse unsupported requests. Sparse labels, weak neighborhoods, incoherent evidence, low support, or missing target fields should produce a refusal rather than an ungrounded prediction.
 
 ## Install
 
@@ -79,32 +66,107 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 ```
 
-## Run Tests
+## One-Command Local Demo
 
 ```bash
-.venv/bin/python -m pytest
+python3 -m qtdm_arbiter.examples.run_demo
 ```
 
-## CLI Example
+The demo runs end-to-end from local fixtures and prints:
 
-The CLI expects a retrieval service with `/search/findings`, `/search/content`, and `/labels` endpoints. Tests use stubbed clients, so a live service is not required for unit testing.
+- request
+- retrieved cases
+- weighted distribution summary
+- prediction
+- interval
+- confidence/support diagnostics
+- evidence case IDs
+- refusal behavior for a bad query
+
+Example excerpt:
+
+```text
+## weighted distribution summary
+- sample_count: 6
+- mean: 249.54
+- median: 251.0
+- q10: 234.0
+- q90: 265.0
+
+## prediction
+- prediction: 235.0
+- interval: [215.0, 255.0]
+- model_used: semantic_distribution+semantic_tilt
+
+## refusal behavior
+{
+  "status": "refused",
+  "refusal_reason": "insufficient_neighbors"
+}
+```
+
+## Mini Eval
 
 ```bash
-QTDM_RETRIEVAL_URL=http://localhost:8000 \
-python -m qtdm_arbiter.arbiter_decide \
-  --query "temperate rocky planet around an M-type star" \
-  --target-type regression \
-  --target-name pl_eqt \
-  --entity-type content \
-  --data-types exoplanet_record \
-  --policy '{"k": 10, "min_support": 0.2, "mode": "semantic_distribution"}'
+python3 examples/mini_eval.py
 ```
+
+This prints a markdown table comparing:
+
+- naive mean
+- weighted median / weighted KNN
+- QTDM `semantic_distribution`
+- QTDM `semantic_distribution` + mock semantic tilt
+
+This is a toy reproducibility check using the included fixture dataset, not the NASA benchmark and not a universal superiority claim.
+
+## Architecture
+
+```text
+query
+  -> retrieve similar labeled precedent cases
+  -> validate neighborhood and refusal gates
+  -> compute retrieval weights
+  -> build weighted empirical outcome distribution
+  -> optional semantic_tilt z_sem
+  -> p = Phi(z_sem)
+  -> prediction = weighted_quantile(p)
+  -> interval + confidence diagnostics + evidence IDs
+  -> answer or refusal
+```
+
+KNN, ridge, logistic, and isotonic estimators remain available as fallback or legacy modes. The public proof path is `semantic_distribution`.
 
 ## API Example
+
+```json
+{
+  "request_id": "demo-exoplanet-eqt",
+  "target_type": "regression",
+  "target_name": "pl_eqt",
+  "entity_type": "content",
+  "query_summary": "temperate rocky planet around an M-type star in the habitable zone",
+  "filters": {},
+  "features": {},
+  "policy": {
+    "mode": "semantic_distribution",
+    "domain": "exoplanet",
+    "k": 6,
+    "min_support": 0.2,
+    "semantic_tilt": true,
+    "mock_semantic_tilt": -0.35
+  },
+  "data_types": ["exoplanet_record"]
+}
+```
+
+Start the API:
 
 ```bash
 uvicorn qtdm_arbiter.api:create_app --factory --host 127.0.0.1 --port 8001
 ```
+
+Send a request:
 
 ```bash
 curl -s http://127.0.0.1:8001/arbiter/decide \
@@ -112,17 +174,39 @@ curl -s http://127.0.0.1:8001/arbiter/decide \
   -d @examples/demo_request.json
 ```
 
+## Public Proof-of-Concept Status
+
+This repo proves the public arbiter mechanism:
+
+- evidence-bounded prediction
+- bounded semantic tilt
+- refusal gates
+- inspectable outputs
+- runnable demo and mini-eval without private services
+
+Larger validation still requires fixed public datasets, preregistered splits, calibration curves, and interval-width reporting.
+
 ## Repository Layout
 
 ```text
 qtdm_arbiter/
-  api/          FastAPI route and app factory
-  audit/        JSONL audit writer with hashed query logging
-  core/         weighting, feature extraction, estimators, refusal gates
-  integration/  retrieval service client
-  models/       Pydantic request/response models
-  tools/        evaluation and calibration utilities
-  tests/        unit tests with stubbed retrieval clients
-examples/       small request/response examples
-docs/           public architecture notes
+  api/                  FastAPI route and app factory
+  audit/                JSONL audit writer with hashed query logging
+  core/                 domain-neutral weighting, distributions, confidence, refusal gates
+  domains/exoplanet/    exoplanet demo adapter, field hints, unit hints
+  examples/             runnable local demo modules
+  integration/          retrieval service client
+  models/               Pydantic request/response models
+  tests/                acceptance and unit tests
+  tools/                evaluation and calibration utilities
+examples/
+  fixtures/             public fixture data
+  mini_eval.py          toy reproducibility check
+docs/                   public architecture and usage notes
+```
+
+## Tests
+
+```bash
+python3 -m pytest
 ```

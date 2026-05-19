@@ -1,8 +1,8 @@
 # How to Use Query Time Decision Modeling
 
-This guide shows how to install the public QTDM arbiter package, run the tests, start the API, and send a decision request.
+This guide shows how to install the public QTDM arbiter package, run the local demo, start the API, and send a decision request.
 
-QTDM is not a standalone database. It expects a compatible retrieval service that can return comparable cases and labels. The included tests use stubbed clients, so you can validate the package without running a retrieval backend.
+QTDM is not a standalone database. It expects a compatible retrieval service for live decisions. The included demo and tests use local fixtures and stubbed clients, so you can validate the public proof-of-concept without running a retrieval backend.
 
 ## 1. Install
 
@@ -14,15 +14,31 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 ```
 
-## 2. Run the Test Suite
+## 2. Run the Local Demo
+
+```bash
+python3 -m qtdm_arbiter.examples.run_demo
+```
+
+The demo uses `examples/fixtures/exoplanet_cases.json` and an in-memory retrieval client. It prints the request, retrieved cases, weighted distribution summary, prediction, interval, confidence diagnostics, evidence IDs, and one refusal example.
+
+## 3. Run the Mini Eval
+
+```bash
+python3 examples/mini_eval.py
+```
+
+This is a toy reproducibility check over the public fixture dataset. It is not the NASA benchmark.
+
+## 4. Run the Test Suite
 
 ```bash
 .venv/bin/python -m pytest
 ```
 
-The tests exercise the estimator, confidence scoring, conformal intervals, refusal behavior, feature extraction, and end-to-end arbiter flow with stubbed retrieval clients.
+The tests exercise semantic distribution, semantic tilt through weighted quantiles, confidence scoring, conformal intervals, refusal behavior, feature extraction, and end-to-end demo scripts.
 
-## 3. Understand the Retrieval Contract
+## 5. Understand the Retrieval Contract
 
 The default HTTP retrieval client expects these endpoints:
 
@@ -39,7 +55,7 @@ The retrieval service should return cases with:
 
 The arbiter is intentionally retrieval-backend agnostic. A vector database, search service, or custom case store can be used if it returns compatible JSON.
 
-## 4. Run a CLI Decision
+## 6. Run a CLI Decision
 
 Set the retrieval service URL, then call the arbiter module:
 
@@ -56,7 +72,7 @@ python -m qtdm_arbiter.arbiter_decide \
 
 If the retrieved neighborhood is weak, sparse, incoherent, or missing usable labels, QTDM should refuse instead of returning an unsupported prediction.
 
-## 5. Run the API
+## 7. Run the API
 
 Start the FastAPI app:
 
@@ -72,21 +88,25 @@ curl -s http://127.0.0.1:8001/arbiter/decide \
   -d @examples/demo_request.json
 ```
 
-## 6. Request Shape
+## 8. Request Shape
 
 A typical request contains:
 
 ```json
 {
-  "query": "temperate rocky planet around an M-type star",
+  "request_id": "demo-exoplanet-eqt",
   "target_type": "regression",
   "target_name": "pl_eqt",
   "entity_type": "content",
+  "query_summary": "temperate rocky planet around an M-type star",
+  "filters": {},
+  "features": {},
   "data_types": ["exoplanet_record"],
   "policy": {
     "k": 10,
     "min_support": 0.2,
-    "mode": "semantic_distribution"
+    "mode": "semantic_distribution",
+    "domain": "exoplanet"
   }
 }
 ```
@@ -94,10 +114,10 @@ A typical request contains:
 Common target types:
 
 - `regression`: numeric prediction with interval and diagnostics
-- `classification`: class prediction with support diagnostics
+- `binary_classification`: binary probability with support diagnostics
 - `ranking`: ordered candidates when the retrieval payload supports ranking
 
-## 7. Response Fields
+## 9. Response Fields
 
 The response includes:
 
@@ -112,13 +132,13 @@ The response includes:
 
 The design goal is inspectability. A caller should be able to see not only what QTDM predicted, but whether the local evidence justified answering.
 
-## 8. Optional LLM Semantic Tilt
+## 10. Optional LLM Semantic Tilt
 
 QTDM can call an LLM for semantic tilt, but the LLM does not directly produce the final numeric answer. It emits a bounded placement signal that is mapped into the weighted empirical distribution built from retrieved cases.
 
 This keeps the final prediction tied to observed evidence while still allowing semantic context to influence where the query sits inside the retrieved neighborhood.
 
-## 9. Evaluation Utilities
+## 11. Evaluation Utilities
 
 The `qtdm_arbiter/tools/` directory contains evaluation and calibration helpers:
 
@@ -131,7 +151,7 @@ The `qtdm_arbiter/tools/` directory contains evaluation and calibration helpers:
 
 These tools are intended for experimentation and replication work. They may require a live retrieval service and domain-specific test sets.
 
-## 10. Where to Start in the Code
+## 12. Where to Start in the Code
 
 - `qtdm_arbiter/arbiter_decide.py`: main decision pipeline and CLI entrypoint
 - `qtdm_arbiter/api/routes.py`: API route wrapper
@@ -140,4 +160,4 @@ These tools are intended for experimentation and replication work. They may requ
 - `qtdm_arbiter/core/confidence.py`: confidence and support scoring
 - `qtdm_arbiter/core/refusal.py`: refusal gates
 - `qtdm_arbiter/core/reasoning.py`: optional bounded semantic tilt
-
+- `qtdm_arbiter/domains/exoplanet/`: exoplanet demo adapter
