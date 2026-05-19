@@ -1,0 +1,17 @@
+{
+  "request_id": "demo-001",
+  "target_type": "regression",
+  "target_name": "pl_eqt",
+  "entity_type": "content",
+  "query_summary": "temperate rocky planet around an M-type star",
+  "filters": {},
+  "features": {},
+  "policy": {
+    "mode": "semantic_distribution",
+    "k": 6,
+    "min_support": 0.2,
+    "counter_queries": ["hot gas giant close orbit"]
+  },
+  "data_types": ["exoplanet_record"]
+}
+

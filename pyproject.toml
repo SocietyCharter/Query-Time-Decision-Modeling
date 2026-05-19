@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qtdm-arbiter"
+version = "0.1.0"
+description = "Retrieval-conditioned decision engine with bounded semantic tilt and confidence diagnostics."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Jesse" }]
+dependencies = [
+  "fastapi>=0.115",
+  "numpy>=1.26",
+  "pydantic>=2.7",
+  "requests>=2.31",
+  "scikit-learn>=1.4",
+  "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[project.scripts]
+qtdm-arbiter = "qtdm_arbiter.arbiter_decide:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["qtdm_arbiter*"]
+
+[tool.pytest.ini_options]
+testpaths = ["qtdm_arbiter/tests"]
+pythonpath = ["."]
+

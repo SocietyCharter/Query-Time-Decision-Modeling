@@ -1,0 +1,23 @@
+{
+  "request_id": "demo-001",
+  "status": "ok",
+  "prediction": 252.5,
+  "prediction_mean": 252.83,
+  "prediction_median": 252.5,
+  "prediction_low": 243.0,
+  "prediction_high": 265.0,
+  "prediction_type": "semantic_distribution_numeric",
+  "confidence": 0.73,
+  "support_score": 0.79,
+  "model_used": "semantic_distribution",
+  "neighbors_requested": 6,
+  "neighbors_used": 6,
+  "evidence_case_ids": ["q-1", "q-2", "q-3", "q-4", "q-5", "q-6"],
+  "fallback_used": false,
+  "refusal_reason": null,
+  "diagnostics": {
+    "feature_completeness": 1.0,
+    "target_coverage": 1.0,
+    "sim_coherence": 0.96
+  }
+}

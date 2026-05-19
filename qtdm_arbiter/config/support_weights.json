@@ -1,0 +1,7 @@
+{
+  "neighbor_count": 0.3,
+  "sim_coherence": 0.25,
+  "feature_completeness": 0.25,
+  "target_variance": 0.1,
+  "estimator_agreement": 0.1
+}
