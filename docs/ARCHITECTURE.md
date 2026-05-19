@@ -4,15 +4,14 @@ QTDM Arbiter is built around a constrained decision pipeline. The public proof p
 
 ```text
 query
-  -> retrieve similar labeled precedent cases
-  -> validate neighborhood and refusal gates
-  -> compute retrieval weights
+  -> retrieve precedent cases
+  -> extract labels
+  -> compute weights
   -> build weighted empirical outcome distribution
-  -> optional semantic_tilt z_sem
-  -> p = Phi(z_sem)
-  -> prediction = weighted_quantile(p)
-  -> interval + confidence diagnostics + evidence IDs
-  -> answer or refusal
+  -> optional bounded semantic tilt
+  -> quantile prediction
+  -> interval/confidence/refusal gates
+  -> evidence-linked response
 ```
 
 ## Core Package
@@ -62,4 +61,3 @@ Any backend can be used if it returns compatible JSON with stable IDs, text, sco
 - The arbiter refuses when support is too weak.
 - Responses expose confidence, support diagnostics, and evidence case IDs.
 - Audit logs hash raw query text instead of storing it directly.
-

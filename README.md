@@ -124,15 +124,14 @@ This is a toy reproducibility check using the included fixture dataset, not the 
 
 ```text
 query
-  -> retrieve similar labeled precedent cases
-  -> validate neighborhood and refusal gates
-  -> compute retrieval weights
+  -> retrieve precedent cases
+  -> extract labels
+  -> compute weights
   -> build weighted empirical outcome distribution
-  -> optional semantic_tilt z_sem
-  -> p = Phi(z_sem)
-  -> prediction = weighted_quantile(p)
-  -> interval + confidence diagnostics + evidence IDs
-  -> answer or refusal
+  -> optional bounded semantic tilt
+  -> quantile prediction
+  -> interval/confidence/refusal gates
+  -> evidence-linked response
 ```
 
 KNN, ridge, logistic, and isotonic estimators remain available as fallback or legacy modes. The public proof path is `semantic_distribution`.
