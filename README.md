@@ -50,6 +50,27 @@ For setup, API usage, request fields, response interpretation, and evaluation ut
 - FastAPI endpoint and CLI entrypoint
 - Unit tests and small public fixtures
 
+## Prerequisites
+
+- Python 3.11 or newer
+- `pip` and `venv` for local installation
+- A compatible retrieval service for live decisions
+- Optional: an LLM endpoint for semantic tilt and decision-context synthesis
+
+The unit tests do not require a live retrieval backend. They use stubbed clients so the core pipeline can be validated locally.
+
+## General Requirements
+
+QTDM expects retrieved cases to include stable identifiers, usable text, similarity or ranking information when available, and target labels or numeric payload fields for the requested prediction target.
+
+For live use, the default retrieval client expects:
+
+- `POST /search/findings`
+- `POST /search/content`
+- `GET /labels`
+
+The arbiter is designed to refuse unsupported requests. Sparse labels, weak neighborhoods, incoherent evidence, low support, or missing target fields should produce a refusal rather than an ungrounded prediction.
+
 ## Install
 
 ```bash
