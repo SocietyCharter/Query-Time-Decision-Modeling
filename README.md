@@ -232,7 +232,3 @@ python3 -m pytest
 ## Validation Note
 
 QTDM is strongest when the retrieval neighborhood is relevant, labeled, and coherent. When support is weak, the system should refuse or return semantic support only. Broader public validation should add larger fixed datasets, preregistered splits, interval-width reporting, calibration curves, and published exact-hit tolerance rules.
-
-## Resume Bullet
-
-Designed and built Query-Time Decision Modeling (QTDM), a retrieval-conditioned decision engine that combines vector-neighborhood evidence, weighted empirical distributions, refusal gates, conformal-style intervals, and constrained LLM semantic tilt to produce explainable predictions with confidence diagnostics.
