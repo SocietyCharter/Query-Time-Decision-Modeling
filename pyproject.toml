@@ -9,7 +9,7 @@ description = "Retrieval-conditioned decision engine with bounded semantic tilt 
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Jesse" }]
+authors = [{ name = "SocietyCharter" }]
 dependencies = [
   "fastapi>=0.115",
   "numpy>=1.26",
